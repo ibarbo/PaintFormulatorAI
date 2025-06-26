@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.env
+.vscode/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb_checkpoints
+*.local
+.virtual_documents
+
+# Datos
+data/raw/
+data/processed/
+*.csv
+*.xlsx
+*.json
+*.parquet
+*.pkl # Archivos pickle para modelos guardados
+
+# Archivos de logs
+*.log
+logs/
+
+# directorios de editor/IDE
+.idea/
+*.iml
+.DS_Store # macOS
+Thumbs.db # Windows
+
+# Archivos de ambiente
+.env
+.flaskenv
+
+# Archivos temporales o generados
+*.tmp
+*.bak
