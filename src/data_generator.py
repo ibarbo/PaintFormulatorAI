@@ -2,6 +2,7 @@
 
 import pandas as pd
 import numpy as np
+import os # Importar el módulo os
 
 def generate_paint_data(num_samples=5000):
     """
@@ -18,13 +19,17 @@ def generate_paint_data(num_samples=5000):
     data = {}
 
     # Componentes principales (porcentajes que suman 100%)
+    # Asegurarse de que los rangos son realistas para que no haya NaN en la normalización
     data['resina_pct'] = np.random.uniform(25, 60, num_samples)
     data['pigmento_pct'] = np.random.uniform(5, 35, num_samples)
     data['solvente_pct'] = np.random.uniform(10, 50, num_samples)
     data['aditivo_pct'] = np.random.uniform(0.5, 10, num_samples)
 
-    # Normalizar para que sumen ~100% (ajustar si es necesario)
+    # Normalizar para que sumen ~100%
+    # Sumar los porcentajes actuales y re-escalar
     total_pct = data['resina_pct'] + data['pigmento_pct'] + data['solvente_pct'] + data['aditivo_pct']
+    # Evitar división por cero si total_pct es 0 (altamente improbable con uniform)
+    total_pct[total_pct == 0] = 1 # Pequeña corrección si por alguna razón la suma fuera 0
     for col in ['resina_pct', 'pigmento_pct', 'solvente_pct', 'aditivo_pct']:
         data[col] = (data[col] / total_pct) * 100 # Escalar para que los porcentajes sumen 100
 
@@ -39,36 +44,32 @@ def generate_paint_data(num_samples=5000):
     data['tiempo_mezcla_min'] = np.random.uniform(30, 180, num_samples)
 
     # --- Propiedades resultantes (objetivo del formulador) ---
-    # Viscosidad (centipoises)
-    data['viscosidad_cp'] = np.random.uniform(500, 5000, num_samples) # Amplio rango inicial
-    # Brillo (unidades de brillo a 60 grados)
+    data['viscosidad_cp'] = np.random.uniform(500, 5000, num_samples)
     data['brillo_unidades'] = np.random.uniform(10, 100, num_samples)
-    # Poder cubriente (escala 1-10)
     data['poder_cubriente'] = np.random.randint(1, 11, num_samples)
-    # Resistencia_abrasion (ciclos)
     data['resistencia_abrasion_ciclos'] = np.random.uniform(100, 1000, num_samples)
-    # Estabilidad_almacenamiento (días)
     data['estabilidad_almacenamiento_dias'] = np.random.uniform(90, 720, num_samples)
 
     # --- Creación del DataFrame ---
     df = pd.DataFrame(data)
 
     # --- Lógica de 'Éxito' o 'Falla' (intencionalmente desbalanceada) ---
-    # Queremos más "Éxitos" que "Fallas" para simular un proceso de I+D donde la mayoría de las formulaciones buscan ser exitosas.
-    # Desbalanceo: aproximadamente 75% Éxito, 25% Falla
     df['exito'] = 0 # 0 para Falla, 1 para Éxito
 
-    # Definir condiciones para el "Éxito" (ajustar estas reglas para simular tu dominio)
-    # Una buena resina, buena proporción de pigmento, solvente adecuado y aditivo en su punto
+    # Definir condiciones para el "Éxito"
     condicion_base_exito = (df['resina_pct'] > 35) & (df['resina_pct'] < 55) & \
                            (df['pigmento_pct'] > 15) & (df['pigmento_pct'] < 30) & \
                            (df['solvente_pct'] > 15) & (df['solvente_pct'] < 40) & \
-                           (df['aditivo_pct'] > 1) & (df['aditivo_pct'] < 8)
+                           (df['aditivo_pct'] > 1) & (df['aditivo_pct'] < 8) & \
+                           (df['calidad_resina'] == 'Alta') & \
+                           (df['tipo_pigmento'] != 'Orgánico') & \
+                           (df['temperatura_mezcla_C'] > 30) & (df['temperatura_mezcla_C'] < 50)
+
 
     df.loc[condicion_base_exito, 'exito'] = 1
 
     # Ajustar algunas propiedades resultantes para que los "Éxitos" tengan mejores valores
-    df.loc[df['exito'] == 1, 'viscosidad_cp'] = np.random.uniform(1000, 3000, df['exito'].sum()) # Rango óptimo
+    df.loc[df['exito'] == 1, 'viscosidad_cp'] = np.random.uniform(1000, 3000, df['exito'].sum())
     df.loc[df['exito'] == 1, 'brillo_unidades'] = np.random.uniform(70, 95, df['exito'].sum())
     df.loc[df['exito'] == 1, 'poder_cubriente'] = np.random.randint(8, 11, df['exito'].sum())
     df.loc[df['exito'] == 1, 'resistencia_abrasion_ciclos'] = np.random.uniform(600, 1000, df['exito'].sum())
@@ -78,11 +79,11 @@ def generate_paint_data(num_samples=5000):
     # Algunas combinaciones de baja calidad de resina o tipos de solvente/pigmento pueden llevar a falla
     df.loc[(df['calidad_resina'] == 'Baja') |
            (df['tipo_solvente'] == 'Acetona') |
-           (df['pigmento_pct'] < 10),
+           (df['pigmento_pct'] < 10) |
+           (df['temperatura_mezcla_C'] < 25) | (df['temperatura_mezcla_C'] > 55),
            'exito'] = 0
 
     # Asegurar el desbalanceo intencionado (ej. forzar más éxitos si quedaron pocos, o viceversa)
-    # Esto es una manera manual de ajustar el desbalanceo si las reglas anteriores no lo logran
     num_exito_actual = df['exito'].sum()
     num_falla_actual = num_samples - num_exito_actual
 
@@ -104,7 +105,7 @@ def generate_paint_data(num_samples=5000):
         idx_to_change = df[df['exito'] == 1].sample(n=(target_falla_count - num_falla_actual), random_state=42).index
         df.loc[idx_to_change, 'exito'] = 0
         # Asegurarse que las propiedades de estas nuevas "fallas" se ajusten
-        df.loc[idx_to_change, 'viscosidad_cp'] = np.random.uniform(500, 5000, len(idx_to_change)) # Rango más amplio para fallas
+        df.loc[idx_to_change, 'viscosidad_cp'] = np.random.uniform(500, 5000, len(idx_to_change))
         df.loc[idx_to_change, 'brillo_unidades'] = np.random.uniform(10, 60, len(idx_to_change))
         df.loc[idx_to_change, 'poder_cubriente'] = np.random.randint(1, 7, len(idx_to_change))
         df.loc[idx_to_change, 'resistencia_abrasion_ciclos'] = np.random.uniform(100, 500, len(idx_to_change))
@@ -113,9 +114,15 @@ def generate_paint_data(num_samples=5000):
     return df
 
 if __name__ == '__main__':
+    # Obtener el directorio del script actual
+    script_dir = os.path.dirname(__file__)
+    # Construir la ruta de salida relativa a la raíz del proyecto
+    # Si el script está en src/, y queremos ir a data/raw/ desde la raíz del proyecto,
+    # necesitamos retroceder de src/ y luego ir a data/raw/
+    project_root = os.path.abspath(os.path.join(script_dir, '..')) # Ir de src/ a PaintFormulatorAI/
+    output_dir = os.path.join(project_root, 'data', 'raw') # Luego ir a data/raw/
+
     # Asegúrate de que la carpeta 'data/raw/' exista
-    import os
-    output_dir = '../data/raw/'
     os.makedirs(output_dir, exist_ok=True)
 
     synthetic_data = generate_paint_data(num_samples=5000)
