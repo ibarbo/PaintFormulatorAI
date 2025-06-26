@@ -16,13 +16,14 @@ venv/
 .virtual_documents
 
 # Datos
-data/raw/
-data/processed/
-*.csv
-*.xlsx
-*.json
-*.parquet
-*.pkl # Archivos pickle para modelos guardados
+data/raw/             # Mantener si quieres ignorar datos brutos
+# data/processed/     # <--- ¡COMENTADO! Esto permite que Git rastree data/processed/ y su contenido
+# *.csv               # Mantener si quieres ignorar archivos CSV fuera de control de versiones
+# *.xlsx
+# *.json
+# *.parquet
+# *.pkl               # <--- ¡COMENTADO! Permite rastrear archivos .pkl si los usaras
+# *.joblib            # <--- ¡COMENTADO! Permite rastrear archivos .joblib
 
 # Archivos de logs
 *.log
